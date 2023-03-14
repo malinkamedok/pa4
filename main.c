@@ -117,7 +117,10 @@ int main(int argc, char **argv) {
                     // printf("child proc %zu try read msg from %zu use des %d\n", process_number, i, global->pipes_all[i][process_number].fd[0]);
                     Message message_start_receive;
 
-                    receive((void*)babyMaybeProcess, i, &message_start_receive);
+                    int receive_result = -1;
+                    while (receive_result == -1) {
+                        receive_result = receive((void*)babyMaybeProcess, i, &message_start_receive);
+                    }
                     printf("child %zu received message: %s\n", count, message_start_receive.s_payload);
 
                     if (message_start_receive.s_header.s_local_time > read_lamport_time(global)) {
@@ -151,10 +154,17 @@ int main(int argc, char **argv) {
 
                 sleep(1);
 
-                int zulepa = request_cs(babyMaybeProcess);
-                printf("oshibka: %d\n", zulepa);
+
 
                 //main work
+                for (size_t i = 1; i < iterations+1; i++) {
+                    int zulepa = request_cs(babyMaybeProcess);
+                    printf("oshibka: %d\n", zulepa);
+                    char print_log[100];
+                    sprintf(print_log, log_loop_operation_fmt, (int )process_number, (int )i, (int )iterations);
+                    print(print_log);
+                    release_cs(babyMaybeProcess);
+                }
 
                 //release cs
             }
@@ -192,20 +202,43 @@ int main(int argc, char **argv) {
 //            for (size_t i = 1; i < number_of_child_procs + 1; i++) wait(NULL);
 
             //READING DONE MESSAGE
-            for (size_t i = 1; i < number_of_child_procs+1; i++) {
-                if (i != process_number) {
-                    Message messageDoneReceive;
+            while (babyMaybeProcess->global_elite->done_procs != number_of_child_procs-1) {
+                Message messageDoneReceive;
 
-                    receive((void*)babyMaybeProcess, i, &messageDoneReceive);
+                receive_any((void*)babyMaybeProcess, &messageDoneReceive);
 
-                    close(global->pipes_all[i][process_number].fd[0]);
-                    printf("child %zu received message: %s from proc #%zu\n", count, messageDoneReceive.s_payload, i);
+                if (messageDoneReceive.s_header.s_type == DONE) {
+                    printf("child %zu received message: %s\n", count, messageDoneReceive.s_payload);
                     if (messageDoneReceive.s_header.s_local_time >= read_lamport_time(global)) {
                         set_lamport_time(global, messageDoneReceive.s_header.s_local_time);
                         incr_lamport_time(global);
                     } else {
                         incr_lamport_time(global);
                     }
+                    babyMaybeProcess->global_elite->done_procs = babyMaybeProcess->global_elite->done_procs + 1;
+                } else if (messageDoneReceive.s_header.s_type == CS_REQUEST) {
+                    if (messageDoneReceive.s_header.s_local_time >= read_lamport_time(global)) {
+                        set_lamport_time(global, messageDoneReceive.s_header.s_local_time);
+                        incr_lamport_time(global);
+                    } else {
+                        incr_lamport_time(global);
+                    }
+
+                    incr_lamport_time(global);
+                    Message message_reply_send;
+                    MessageHeader messageHeader1;
+                    messageHeader1.s_local_time = read_lamport_time(global);
+                    messageHeader1.s_type = CS_REPLY;
+                    messageHeader1.s_payload_len = 0;
+                    messageHeader1.s_magic = MESSAGE_MAGIC;
+                    message_reply_send.s_header = messageHeader1;
+
+                    send(babyMaybeProcess, atoi(messageDoneReceive.s_payload), &message_reply_send);
+                }
+            }
+            for (size_t i = 1; i < number_of_child_procs+1; i++) {
+                if (i != process_number) {
+                    close(global->pipes_all[i][process_number].fd[0]);
                 }
             }
 

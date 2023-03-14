@@ -15,11 +15,21 @@ typedef struct {
 
 request_queue * new_member_in_queue(timestamp_t time, size_t id);
 
+void push (void * self, timestamp_t time, size_t id);
+
+request_queue * pop (void * self);
+
+int compare_elements (request_queue * element0, request_queue * element1);
+
+void sort_elements (void * self);
+
 typedef struct {
     size_t number_of_child_procs;
     struct pipes ** pipes_all;
     timestamp_t lamport_time;
     request_queue * queue[10];
+    size_t queue_size;
+    size_t done_procs;
 } pipes_all_global;
 
 pipes_all_global * new(size_t number);
