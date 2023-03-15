@@ -17,9 +17,9 @@ request_queue * new_member_in_queue(timestamp_t time, size_t id);
 
 void push (void * self, timestamp_t time, size_t id);
 
-request_queue * pop (void * self);
+void pop (void * self);
 
-int compare_elements (request_queue * element0, request_queue * element1);
+int compare_elements (const void * param0, const void * param1);
 
 void sort_elements (void * self);
 
@@ -30,6 +30,7 @@ typedef struct {
     request_queue * queue[10];
     size_t queue_size;
     size_t done_procs;
+    size_t sender_proc;
 } pipes_all_global;
 
 pipes_all_global * new(size_t number);

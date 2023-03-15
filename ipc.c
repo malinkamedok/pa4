@@ -30,7 +30,7 @@ int receive(void * self, local_id from, Message * msg) {
 
     int read_header_result = read(glb->global_elite->pipes_all[from][glb->id].fd[0], &msg->s_header, sizeof(MessageHeader));
 
-    if (read_header_result == -1) {
+    if (read_header_result == -1 || read_header_result == 0) {
         return -1;
     }
 
@@ -49,9 +49,10 @@ int receive_any(void * self, Message * msg) {
     while (1) {
         for (size_t j = 0; j < glb->global_elite->number_of_child_procs; j++) {
             if (glb->id != j) {
-                int receive_result = receive(self, j, msg);
+                int receive_result = receive(glb, j, msg);
 
                 if (receive_result == 0) {
+                    glb->global_elite->sender_proc = j;
                     return 0;
                 }
                 if (receive_result == -1) {
